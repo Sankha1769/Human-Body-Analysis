@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#07111b" />
+  <title>Human Body Explorer — Interactive 3D Anatomy</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07111b;
+      --panel: rgba(11, 23, 35, .88);
+      --panel-2: rgba(15, 31, 46, .92);
+      --line: rgba(176, 205, 226, .12);
+      --text: #eaf3f8;
+      --muted: #8196a8;
+      --accent: #6fe0ce;
+      --accent-2: #6da8ff;
+      --warm: #ff9c87;
+      --radius: 16px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--text); }
+    body { background-image: radial-gradient(ellipse at 50% 45%, rgba(26, 68, 83, .18), transparent 48%), linear-gradient(135deg, #07111b 0%, #081522 52%, #07101a 100%); }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    #app { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+    .topbar { height: 68px; flex: 0 0 68px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 0 24px; border-bottom: 1px solid var(--line); background: rgba(5, 14, 23, .72); backdrop-filter: blur(18px); z-index: 5; }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .brand-mark { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; color: #071a20; background: linear-gradient(145deg, #8bf0d9, #4daea9); box-shadow: 0 0 26px rgba(111, 224, 206, .16); }
+    .brand-mark svg { width: 20px; height: 20px; }
+    .brand-copy { min-width: 0; }
+    .brand-title { margin: 0; font-size: 13px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
+    .brand-sub { margin-top: 2px; color: var(--muted); font-size: 10px; letter-spacing: .11em; text-transform: uppercase; }
+    .top-status { display: flex; align-items: center; gap: 16px; color: var(--muted); font-size: 11px; }
+    .status-dot { display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+    .version { border: 1px solid var(--line); padding: 6px 9px; border-radius: 20px; color: #aac0ce; }
+    .workspace { flex: 1; min-height: 0; display: grid; grid-template-columns: 248px minmax(320px, 1fr) 304px; gap: 0; }
+    .sidebar, .details { min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #294052 transparent; background: rgba(8, 19, 30, .66); }
+    .sidebar { border-right: 1px solid var(--line); padding: 20px 15px 18px; }
+    .details { border-left: 1px solid var(--line); padding: 20px 17px; background: rgba(10, 23, 35, .78); }
+    .section-label { color: #71899a; font-size: 9px; font-weight: 800; letter-spacing: .17em; text-transform: uppercase; margin: 0 0 11px 3px; }
+    .search-wrap { position: relative; margin-bottom: 24px; }
+    .search-icon { position: absolute; top: 11px; left: 12px; color: #7890a3; pointer-events: none; }
+    #organSearch { width: 100%; height: 38px; padding: 0 12px 0 36px; outline: none; border: 1px solid var(--line); border-radius: 9px; color: var(--text); background: rgba(255,255,255,.035); font-size: 11px; transition: border-color .2s, box-shadow .2s; }
+    #organSearch:focus { border-color: rgba(111,224,206,.55); box-shadow: 0 0 0 3px rgba(111,224,206,.08); }
+    #organSearch::placeholder { color: #657b8d; }
+    #searchResults { display: none; position: absolute; top: 43px; left: 0; right: 0; z-index: 8; max-height: 220px; overflow: auto; padding: 5px; border: 1px solid var(--line); border-radius: 10px; background: #102131; box-shadow: 0 18px 40px #0008; }
+    #searchResults button { display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px; border: 0; border-radius: 7px; text-align: left; font-size: 11px; background: transparent; cursor: pointer; }
+    #searchResults button:hover { background: rgba(255,255,255,.07); }
+    .mini-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+    .system-list { display: grid; gap: 5px; }
+    .system-btn { width: 100%; min-height: 39px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: #9aafbd; text-align: left; font-size: 11px; cursor: pointer; transition: .18s ease; }
+    .system-btn:hover { color: var(--text); background: rgba(255,255,255,.04); }
+    .system-btn.active { color: #dffcf5; background: linear-gradient(90deg, rgba(111,224,206,.13), rgba(111,224,206,.035)); border-color: rgba(111,224,206,.2); }
+    .system-icon { width: 23px; height: 23px; display: grid; place-items: center; border-radius: 7px; color: var(--sys-color, #9ab); background: color-mix(in srgb, var(--sys-color, #9ab) 13%, transparent); font-size: 12px; }
+    .system-count { margin-left: auto; color: #607789; font-size: 9px; font-variant-numeric: tabular-nums; }
+    .side-divider { height: 1px; margin: 21px 0 18px; background: var(--line); }
+    .quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .quick-organ { min-height: 33px; display: flex; align-items: center; gap: 7px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; color: #9fb2c0; background: rgba(255,255,255,.025); font-size: 10px; cursor: pointer; text-align: left; }
+    .quick-organ:hover, .quick-organ.selected { border-color: rgba(111,224,206,.4); color: #e7fff9; background: rgba(111,224,206,.07); }
+    .stage { min-width: 0; min-height: 0; position: relative; overflow: hidden; background: radial-gradient(ellipse at 50% 46%, rgba(40, 94, 109, .15), transparent 48%); }
+    #scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; touch-action: none; }
+    .stage-heading { position: absolute; top: 23px; left: 25px; z-index: 2; pointer-events: none; }
+    .stage-kicker { color: var(--accent); font-size: 9px; letter-spacing: .19em; text-transform: uppercase; font-weight: 800; }
+    .stage-title { margin: 5px 0 0; font-size: 20px; letter-spacing: -.035em; font-weight: 620; }
+    .stage-description { color: #7f95a7; margin-top: 5px; font-size: 10px; }
+    .stage-help { position: absolute; left: 50%; bottom: 86px; transform: translateX(-50%); z-index: 2; white-space: nowrap; color: #7f95a7; font-size: 10px; pointer-events: none; text-shadow: 0 1px 8px #07111b; }
+    .stage-help span { color: #c2d5df; }
+    .canvas-controls { position: absolute; z-index: 3; bottom: 23px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 6px; border: 1px solid rgba(169,204,224,.15); border-radius: 12px; background: rgba(8,20,31,.82); backdrop-filter: blur(15px); box-shadow: 0 12px 35px #0003; }
+    .control-btn { min-width: 34px; height: 32px; padding: 0 10px; display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #a9bdca; font-size: 10px; cursor: pointer; }
+    .control-btn:hover { background: rgba(255,255,255,.07); color: white; }
+    .control-btn.active { background: rgba(111,224,206,.12); color: #9af0df; border-color: rgba(111,224,206,.2); }
+    .control-sep { width: 1px; height: 19px; background: var(--line); margin: 0 2px; }
+    .control-btn svg { width: 14px; height: 14px; }
+    .details-eyebrow { color: var(--accent); font-size: 9px; letter-spacing: .18em; text-transform: uppercase; font-weight: 800; }
+    .organ-heading { display: flex; align-items: flex-start; gap: 10px; margin-top: 12px; }
+    .organ-swatch { width: 12px; height: 12px; margin-top: 7px; border-radius: 4px; box-shadow: 0 0 16px currentColor; flex: 0 0 auto; }
+    #organTitle { margin: 0; font-size: 25px; font-weight: 650; letter-spacing: -.045em; line-height: 1.12; }
+    #organLocation { margin: 7px 0 0; color: #8299aa; font-size: 10px; line-height: 1.5; }
+    .organ-description { color: #b4c5d0; font-size: 11px; line-height: 1.75; margin: 20px 0 19px; }
+    .info-block { padding: 14px 0; border-top: 1px solid var(--line); }
+    .info-label { color: #71899a; font-size: 9px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; margin: 0 0 10px; }
+    #organFunction { color: #c8d6df; font-size: 11px; line-height: 1.65; margin: 0; }
+    #organFacts { display: grid; gap: 9px; padding: 0; margin: 0; list-style: none; }
+    #organFacts li { position: relative; padding-left: 13px; color: #a8bbc8; font-size: 10px; line-height: 1.55; }
+    #organFacts li::before { content: ""; position: absolute; top: 5px; left: 0; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+    .organ-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 17px; }
+    .meta-pill { padding: 6px 8px; border: 1px solid var(--line); border-radius: 7px; color: #92a9b8; background: rgba(255,255,255,.025); font-size: 9px; }
+    .notice { margin-top: 15px; padding: 10px 11px; border: 1px solid rgba(255,190,112,.14); border-radius: 9px; color: #9c9a8e; background: rgba(255,190,112,.045); font-size: 9px; line-height: 1.55; }
+    .empty-state { color: var(--muted); font-size: 11px; padding: 9px; }
+    .loading { position: absolute; inset: 0; display: grid; place-items: center; z-index: 4; background: #07111b; color: #9cb2c1; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; transition: opacity .35s; }
+    .loading.hidden { opacity: 0; pointer-events: none; }
+    .loading strong { display: block; margin-bottom: 9px; color: var(--accent); font-size: 14px; letter-spacing: .16em; }
+    .footer-note { padding-top: 14px; color: #607889; font-size: 9px; line-height: 1.6; }
+    @media (max-width: 1080px) {
+      .workspace { grid-template-columns: 215px minmax(280px, 1fr) 270px; }
+      .sidebar { padding-left: 12px; padding-right: 12px; }
+      .details { padding-left: 14px; padding-right: 14px; }
+    }
+    @media (max-width: 820px) {
+      html, body { overflow: auto; }
+      #app { min-height: 100%; height: auto; }
+      .topbar { height: 60px; flex-basis: 60px; padding: 0 14px; }
+      .top-status { gap: 8px; }
+      .workspace { min-height: calc(100vh - 60px); display: flex; flex-direction: column; overflow: visible; }
+      .stage { height: min(68vh, 650px); min-height: 430px; order: 1; }
+      .sidebar { order: 2; border-right: 0; border-top: 1px solid var(--line); padding: 16px; overflow: visible; }
+      .details { order: 3; border-left: 0; border-top: 1px solid var(--line); padding: 18px 16px 25px; overflow: visible; }
+      .system-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .stage-heading { top: 15px; left: 15px; }
+      .stage-title { font-size: 17px; }
+      .stage-help { bottom: 75px; font-size: 9px; }
+      .canvas-controls { bottom: 14px; }
+      .footer-note { max-width: 440px; }
+    }
+    @media (max-width: 430px) {
+      .brand-title { font-size: 11px; }
+      .brand-sub { font-size: 8px; }
+      .top-status { font-size: 9px; }
+      .version { display: none; }
+      .stage { min-height: 400px; height: 56vh; }
+      .canvas-controls { gap: 2px; }
+      .control-btn { min-width: 31px; padding: 0 7px; }
+      .control-btn .control-text { display: none; }
+    }
+
+    .dock{position:absolute;top:14px;right:14px;display:flex;flex-direction:column;gap:8px;align-items:flex-end;z-index:5;max-width:calc(100% - 28px)}
+    .dock-row{display:flex;flex-wrap:wrap;gap:3px;justify-content:flex-end;padding:4px;border:1px solid var(--line);border-radius:12px;background:var(--panel);backdrop-filter:blur(14px)}
+    .dock button,.rel-chip{font:inherit;font-size:11px;color:var(--text);background:transparent;border:1px solid transparent;border-radius:8px;padding:6px 10px;cursor:pointer;transition:.2s}
+    .dock button:hover,.rel-chip:hover{background:rgba(111,224,206,.12)}
+    .dock button[aria-pressed="true"]{color:var(--accent);border-color:rgba(111,224,206,.4);background:rgba(111,224,206,.1)}
+    .dock button:focus-visible,.rel-chip:focus-visible{outline:2px solid var(--accent-2)}
+    .rel-chip{border:1px solid var(--line);margin:0 4px 4px 0;font-size:11px;padding:4px 9px}
+    #tip{position:absolute;pointer-events:none;opacity:0;transition:opacity .15s;z-index:6;padding:5px 10px;border-radius:8px;font-size:12px;background:var(--panel-2);border:1px solid var(--line);color:var(--text);white-space:nowrap}
+    @media (max-width:700px){.dock{top:auto;bottom:58px;left:8px;right:8px;align-items:stretch}.dock-row{justify-content:center}}
+
+    [hidden]{display:none!important}
+    button:disabled{opacity:.4;cursor:not-allowed}
+    .toast{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);z-index:8;max-width:min(560px,90%);padding:9px 14px;border-radius:10px;font-size:12px;line-height:1.4;background:var(--panel-2);border:1px solid rgba(255,156,135,.45);color:var(--text)}
+    .dock button[data-loading]{opacity:.5;cursor:progress}
+    .dock button[data-error]{color:var(--warm);border-color:rgba(255,156,135,.5)}
+    .slider{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);padding:4px 8px}
+    .slider input{width:110px;accent-color:#6fe0ce}
+    .asset-error{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(7,17,27,.82);padding:16px}
+    .asset-card{max-width:520px;max-height:90%;overflow:auto;padding:20px 22px;border:1px solid rgba(255,156,135,.45);border-radius:16px;background:var(--panel-2);color:var(--text);font-size:13px;line-height:1.5}
+    .asset-card h3{margin:0 0 8px;color:var(--warm);font-size:16px}
+    .asset-card ul{padding-left:18px}.asset-card li{margin-bottom:6px}.asset-card li span{display:block;color:var(--muted);font-size:12px}
+    .asset-card code,dialog code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:5px;font-size:12px}
+    .asset-card button,.credits-btn,dialog button{font:inherit;font-size:12px;color:var(--text);background:rgba(111,224,206,.12);border:1px solid rgba(111,224,206,.4);border-radius:8px;padding:6px 12px;cursor:pointer}
+    .credits-btn{margin-top:10px;width:100%}
+    dialog{max-width:640px;width:calc(100% - 32px);max-height:85vh;overflow:auto;border:1px solid var(--line);border-radius:16px;background:var(--panel-2);color:var(--text);padding:22px;font-size:13px;line-height:1.55}
+    dialog::backdrop{background:rgba(2,8,14,.7)}dialog h3{margin:0 0 8px}dialog a{color:var(--accent-2)}
+
+    .info-block p:not(.info-label){font-size:13px;line-height:1.6;font-weight:400;color:#c3d2dd}
+    #leaders{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3}
+    #leaders polyline{fill:none;stroke:rgba(205,228,240,.75);stroke-width:1}
+    #leaders circle{fill:#e8f2f8;stroke:rgba(10,24,36,.8);stroke-width:1}
+    #labelLayer{position:absolute;inset:0;pointer-events:none;z-index:4}
+    .anat-label{position:absolute;display:none;padding:3px 8px;font-size:11px;border:1px solid rgba(160,200,220,.35);border-radius:6px;background:rgba(10,24,36,.82);color:#e6f0f6;white-space:nowrap}
+    .dock{max-height:calc(100% - 28px);overflow:auto}
+    .dock select{font:inherit;font-size:11px;color:var(--text);background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:6px;padding:3px 4px}
+    .dock input[type=range]{width:90px;accent-color:#6fe0ce}
+    @media (max-width:700px){.dock{max-height:40%}}
+
+    #organStructure,#organConditions{font-size:11px;line-height:1.65;color:#c8d6df;margin:0}
+    #scene{inset:0 0 auto 0!important;height:calc(100% - 245px)!important}
+    .dock{top:auto;bottom:108px;left:0;right:0;flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:center;max-width:none;padding:0 14px;gap:6px;overflow:visible;max-height:none}
+    .dock-row{flex:none}
+    @media (max-width:700px){#scene{inset:0!important;height:100%!important}.dock{bottom:62px;max-height:38%;overflow:auto;padding:0 6px}}
+
+    .dock-toggle{display:none;position:absolute;top:12px;right:12px;z-index:7;font:inherit;font-size:12px;color:var(--text);background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:7px 14px;cursor:pointer}
+    @media (max-width:700px){
+      .dock-toggle{display:block}
+      .dock{display:none;bottom:62px;max-height:55%;background:rgba(7,17,27,.92);padding:8px 6px;border-radius:12px;margin:0 6px}
+      .dock.open{display:flex}
+      .dock-row{flex-wrap:wrap;justify-content:center;max-width:100%}
+      .dock button{padding:6px 8px}
+    }
+
+    .model-switch{display:flex;gap:2px;padding:3px;border:1px solid rgba(111,224,206,.35);border-radius:999px;background:rgba(10,24,36,.7)}
+    .model-switch button{font:inherit;font-size:12px;font-weight:600;letter-spacing:.08em;color:var(--muted);background:transparent;border:0;border-radius:999px;padding:6px 18px;cursor:pointer;transition:.2s}
+    .model-switch button[aria-pressed="true"]{color:#06222a;background:var(--accent)}
+    .model-switch button:focus-visible{outline:2px solid var(--accent-2)}
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4m0 10v4M3 12h4m10 0h4"/><path d="M12 7c-2.2-2.4-5.8-1.3-5.8 2 0 1.5 1 2.6 2.2 3-1.2.5-2.2 1.5-2.2 3 0 3.3 3.6 4.4 5.8 2 2.2 2.4 5.8 1.3 5.8-2 0-1.5-1-2.5-2.2-3 1.2-.4 2.2-1.5 2.2-3 0-3.3-3.6-4.4-5.8-2Z"/></svg>
+        </div>
+        <div class="brand-copy">
+          <h1 class="brand-title">Human Body Explorer</h1>
+          <div class="brand-sub">Interactive anatomy laboratory</div>
+        </div>
+      </div>
+      <div class="model-switch" role="group" aria-label="Anatomical reference model"><button type="button" data-model="male" aria-pressed="true">Male</button><button type="button" data-model="female" aria-pressed="false">Female</button></div>
+      <div class="top-status"><span><i class="status-dot"></i><b id="assetStatus" style="font-weight:inherit">Procedural educational model</b></span><span class="version">LEARN · EXPLORE · DISCOVER</span></div>
+    </header>
+
+    <main class="workspace">
+      <aside class="sidebar">
+        <p class="section-label">Find an organ</p>
+        <div class="search-wrap">
+          <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+          <input id="organSearch" type="search" placeholder="Search organs..." autocomplete="off" aria-label="Search organs" />
+          <div id="searchResults" role="listbox"></div>
+        </div>
+
+        <p class="section-label">Explore body systems</p>
+        <nav class="system-list" id="systemList" aria-label="Body systems"></nav>
+
+        <div class="side-divider"></div>
+        <p class="section-label">Quick access</p>
+        <div class="quick-grid" id="quickGrid">
+          <button class="quick-organ" data-organ="heart"><i class="mini-dot" style="background:#ff6f79"></i>Heart</button>
+          <button class="quick-organ" data-organ="brain"><i class="mini-dot" style="background:#b69cff"></i>Brain</button>
+          <button class="quick-organ" data-organ="lungs"><i class="mini-dot" style="background:#83c9ef"></i>Airways</button>
+          <button class="quick-organ" data-organ="liver"><i class="mini-dot" style="background:#c98c69"></i>Liver (partial)</button>
+          <button class="quick-organ" data-organ="stomach"><i class="mini-dot" style="background:#e5a36d"></i>Stomach</button>
+          <button class="quick-organ" data-organ="kidneys"><i class="mini-dot" style="background:#8db1ef"></i>Kidneys</button>
+        </div>
+        <div class="footer-note">Drag to rotate, scroll to zoom, right-drag to pan. Click a structure to select it (Shift-click adds). Esc clears.</div>
+        <button type="button" class="credits-btn" id="creditsBtn">Credits &amp; licences</button>
+      </aside>
+
+      <section class="stage" aria-label="Interactive 3D human body">
+        <canvas id="scene" tabindex="0" aria-label="3D human body model. Drag to rotate and click organs to inspect."></canvas>
+        <div class="stage-heading">
+          <div class="stage-kicker">Anatomy / 001</div>
+          <h2 class="stage-title">Inside the human body</h2>
+          <div class="stage-description" id="stageDescription">Select an organ to begin exploring</div>
+        </div>
+        <div class="stage-help"><span>DRAG</span> to rotate &nbsp;·&nbsp; <span>SCROLL</span> to zoom &nbsp;·&nbsp; <span>CLICK</span> an organ</div>
+        <div class="canvas-controls" aria-label="Model controls">
+          <button class="control-btn active" id="rotateBtn" title="Toggle auto rotation" aria-pressed="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M5.5 9A7 7 0 0 1 18 6l2 6M4 12l2 6a7 7 0 0 0 12.5-3"/></svg><span class="control-text">Rotate</span>
+          </button>
+          <div class="control-sep"></div>
+          <button class="control-btn" id="zoomOut" title="Zoom out" aria-label="Zoom out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.8" cy="10.8" r="7"/><path d="M6.8 10.8h8M16 16l5 5"/></svg></button>
+          <button class="control-btn" id="zoomIn" title="Zoom in" aria-label="Zoom in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.8" cy="10.8" r="7"/><path d="M10.8 6.8v8m-4-4h8M16 16l5 5"/></svg></button>
+          <div class="control-sep"></div>
+          <button class="control-btn" id="resetBtn" title="Reset view">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 3v5h5"/></svg><span class="control-text">Reset</span>
+          </button>
+        </div>
+        <div class="dock" id="dockPanel" role="toolbar" aria-label="Views, layers and anatomy tools">
+          <div class="dock-row" aria-label="Camera views"><button data-view="front">Front</button><button data-view="back">Back</button><button data-view="left">Left</button><button data-view="right">Right</button></div>
+          <div class="dock-row" aria-label="Anatomical layers"><button data-layer="skin" aria-pressed="false">Skin</button><button data-layer="organs" aria-pressed="true">Organs</button><button data-layer="skeleton" aria-pressed="false">Skeleton</button><button data-layer="muscles" aria-pressed="false">Muscles</button><button data-layer="arteries" aria-pressed="false">Arteries</button><button data-layer="veins" aria-pressed="false">Veins</button><button data-layer="vessels" aria-pressed="false" hidden>Vessels</button><button data-layer="nerves" aria-pressed="false">Nerves</button></div>
+          <div class="dock-row"><label class="slider">Skin opacity <input id="skinOpacity" type="range" min="0" max="100" value="14" disabled title="Available once the skin layer is loaded" aria-label="Skin opacity"></label></div>
+          <div class="dock-row" aria-label="Dissection steps"><button data-step="external" aria-pressed="false">External</button><button data-step="transparent" aria-pressed="false">Transparent skin</button><button data-step="muscles" aria-pressed="false">Muscles</button><button data-step="skeleton" aria-pressed="false">Skeleton</button><button data-step="organs" aria-pressed="false">Organs</button><button data-step="circulatory" aria-pressed="false">Circulatory</button><button data-step="nervous" aria-pressed="false">Nervous</button><button data-step="overview" aria-pressed="false">Overview</button></div>
+          <div class="dock-row" aria-label="Cross-section"><label class="slider">Section <select id="sectionAxis" aria-label="Section plane"><option value="off">Off</option><option value="x">Sagittal</option><option value="z">Coronal</option><option value="y">Transverse</option></select></label><input id="sectionPos" type="range" min="0" max="100" value="50" disabled aria-label="Section position"><button id="sectionFlip" disabled>Flip</button></div>
+          <div class="dock-row" aria-label="Organ tools"><button id="explodeBtn" aria-pressed="false">Explode</button><button id="inspectBtn">Inspect organ</button><button id="isolateBtn" aria-pressed="false">Isolate</button><button id="hideBtn">Hide</button><button id="showAllBtn">Show all</button></div>
+        </div>
+        <div id="tip" role="tooltip"></div>
+        <svg id="leaders" aria-hidden="true"></svg><div id="labelLayer" aria-hidden="true"></div>
+        <button type="button" class="dock-toggle" id="dockToggle" aria-expanded="false" aria-controls="dockPanel">Tools</button>
+        <div class="asset-error" id="assetError" hidden></div>
+        <div class="toast" id="toast" role="status" hidden></div>
+        <div class="loading" id="loading"><div><strong>HUMAN BODY EXPLORER</strong><span id="loadingText">Loading anatomy…</span></div></div>
+      </section>
+
+      <aside class="details" aria-live="polite">
+        <div class="details-eyebrow" id="organSystem">CIRCULATORY SYSTEM</div>
+        <div class="organ-heading">
+          <span class="organ-swatch" id="organSwatch" style="background:#ff6f79;color:#ff6f79"></span>
+          <div>
+            <h2 id="organTitle">Heart</h2>
+            <p id="organLocation">Thoracic cavity · slightly left of centre</p>
+          </div>
+        </div>
+        <p class="organ-description" id="organDescription">The heart is a muscular organ that works as the body's pump, moving blood through the lungs and around the rest of the body.</p>
+        <div class="info-block">
+          <p class="info-label">Primary function</p>
+          <p id="organFunction">It keeps blood circulating, delivering oxygen and nutrients to tissues and carrying away waste products.</p>
+        </div>
+        <div class="info-block">
+          <p class="info-label">Did you know?</p>
+          <ul id="organFacts"><li>Your heart beats around 100,000 times in a typical day.</li><li>It has four chambers that work in a coordinated rhythm.</li></ul>
+        </div>
+        <div class="info-block"><p class="info-label">Internal structure</p><p id="organStructure"></p></div>
+        <div class="info-block"><p class="info-label">Common conditions</p><p id="organConditions"></p></div>
+        <div class="info-block"><p class="info-label">Related structures</p><div id="organRelated"></div></div>
+        <div class="info-block" id="componentBlock" hidden><p class="info-label">Detailed views · parts of this organ</p><div id="organComponents"></div><p id="componentNote"></p></div>
+        <div class="organ-meta"><span class="meta-pill" id="organSystemPill">Circulatory</span><span class="meta-pill">Interactive 3D model</span></div>
+        <div class="notice" id="dataNote" hidden></div>
+        <div class="notice">Educational rendering of simplified reference anatomy (male: BodyParts3D; female: HuBMAP Visible Human Female, partial). General information, not medical advice and not a clinical reference. See Credits &amp; licences for sources and gaps.</div>
+      </aside>
+    </main>
+  </div>
+
+    <dialog id="credits" aria-labelledby="creditsTitle">
+    <h3 id="creditsTitle">Credits &amp; licences</h3>
+    <p><strong>Anatomy data:</strong> BodyParts3D 4.0 (adult male reference anatomy), &copy; The Database Center for Life Science, licensed <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. Dataset: <a href="https://dbarchive.biosciencedbc.jp/en/bodyparts3d/download.html" target="_blank" rel="noopener">dbarchive.biosciencedbc.jp</a>. Mitsuhashi et al. (2009), <a href="https://doi.org/10.1093/nar/gkn613" target="_blank" rel="noopener">doi:10.1093/nar/gkn613</a>.</p>
+    <p><strong>Adaptations (made by this project, not by the data authors):</strong> meshes were obtained from the open-source Human Atlas project (MIT, ashemag/human-atlas), where they were converted from millimetres/Z-up to metres/Y-up and simplified with meshoptimizer (0.2% relative error). Here they were repacked into layer GLB files with quantised normals (this build ships all seven layers). Colours, grouping into systems and organ mapping are ours. Structures are therefore simplified compared with the original.</p>
+    <p><strong>Known gaps:</strong> the source data has no lung surface and only part of the liver (caudate lobe, ducts, vessels). It is a single male reference body with no skin texture.</p>
+    <p><strong>Female model (partial):</strong> Visible Human Female reference organs from the HuBMAP CCF 3D Reference Object Library v1.0 (<a href="https://hubmapconsortium.github.io/ccf/pages/ccf-3d-reference-library.html" target="_blank" rel="noopener">CC BY 4.0</a>; source data: U.S. National Library of Medicine Visible Human Project; large intestine by Stony Brook University, lymph nodes by NIH). Included: skin, heart, lungs and airways, kidneys, spleen, thymus, large intestine, lymph nodes, pelvic bones and blood vessels. Not included: brain, skeleton beyond the pelvis, muscles, nerves, liver, stomach, pancreas, small intestine, bladder and all reproductive organs. The Allen Institute brain model was excluded because it has a different licence. Models were repacked into layer files by this project (baked transforms, duplicate vessels removed, quantised normals).</p>
+    <p><strong>Software:</strong> Three.js (MIT) &mdash; OrbitControls, GLTFLoader, RoomEnvironment.</p>
+    <p>Educational use only. Not validated for clinical or diagnostic use. See <code>ATTRIBUTION.md</code> in the project folder.</p>
+    <button type="button" id="creditsClose">Close</button>
+  </dialog>
+<script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+    const $ = (selector) => document.querySelector(selector);
+    const organData = {
+      brain: { name: 'Brain', system: 'Nervous', color: '#b69cff', location: 'Cranial cavity · inside the skull', description: 'The brain is the body’s control centre. It receives information, processes it and coordinates movement, memory, emotions and many automatic processes.', function: 'It interprets sensory signals, supports thought and memory, and helps regulate essential functions such as breathing and body temperature.', facts: ['The brain contains billions of nerve cells called neurons.', 'Different regions specialise in tasks such as movement, language and vision.'] },
+      spinalCord: { name: 'Spinal cord', system: 'Nervous', color: '#c6b5ff', location: 'Vertebral canal · within the spine', description: 'The spinal cord is a long bundle of nerve tissue that connects the brain with much of the body.', function: 'It carries messages between the brain and body and coordinates some rapid reflex actions.', facts: ['It is protected by the vertebrae and surrounding membranes.', 'Reflexes can be coordinated by the spinal cord before the brain processes the sensation.'] },
+      lungs: { name: 'Lungs', system: 'Respiratory', color: '#82cbed', location: 'Thoracic cavity · either side of the heart', description: 'The lungs are a pair of soft, spongy organs that exchange gases between the air and the blood.', function: 'Tiny air sacs called alveoli move oxygen into the blood and allow carbon dioxide to leave it.', facts: ['The right lung usually has three lobes; the left has two to make room for the heart.', 'The diaphragm helps draw air into the lungs when it contracts.'] },
+      trachea: { name: 'Trachea', system: 'Respiratory', color: '#9ad8ee', location: 'Neck and upper chest · in front of the oesophagus', description: 'The trachea, or windpipe, is the airway that connects the voice box to the bronchi leading into the lungs.', function: 'It carries air to and from the lungs. Cartilage rings help keep the airway open.', facts: ['Its lining has tiny hair-like cilia that help move trapped particles upward.', 'It divides into two main bronchi, one leading to each lung.'] },
+      heart: { name: 'Heart', system: 'Circulatory', color: '#ff707d', location: 'Thoracic cavity · slightly left of centre', description: 'The heart is a muscular organ that works as the body’s pump, moving blood through the lungs and around the rest of the body.', function: 'It keeps blood circulating, delivering oxygen and nutrients to tissues and carrying away waste products.', facts: ['Your heart beats around 100,000 times in a typical day.', 'It has four chambers that work in a coordinated rhythm.'] },
+      aorta: { name: 'Aorta', system: 'Circulatory', color: '#ed6574', location: 'Chest and abdomen · largest artery', description: 'The aorta is the largest artery in the body. It carries oxygen-rich blood away from the heart.', function: 'It distributes blood from the left ventricle to arteries that supply organs and tissues.', facts: ['It curves over the heart before descending through the chest and abdomen.', 'Its branches supply blood to the head, arms and trunk.'] },
+      venaCava: { name: 'Vena cava', system: 'Circulatory', color: '#6fa9ef', location: 'Chest and abdomen · leading into the right atrium', description: 'The superior and inferior vena cava are the body’s largest veins.', function: 'They return oxygen-poor blood from the upper and lower body to the heart.', facts: ['The superior vena cava drains the head, neck, arms and chest.', 'The inferior vena cava returns blood from the lower body.'] },
+      liver: { name: 'Liver', system: 'Digestive', color: '#c98a68', location: 'Upper abdomen · mostly on the right side', description: 'The liver is a large organ that performs hundreds of important chemical processes and supports digestion.', function: 'It processes nutrients, makes bile, stores energy and helps break down many substances in the blood.', facts: ['The liver can regenerate a portion of its tissue after some types of injury.', 'Bile produced by the liver helps the small intestine digest fats.'] },
+      stomach: { name: 'Stomach', system: 'Digestive', color: '#e8a36e', location: 'Upper abdomen · mostly on the left side', description: 'The stomach is a muscular, expandable organ that receives food from the oesophagus.', function: 'It churns food and mixes it with acid and enzymes, beginning the breakdown of proteins.', facts: ['The stomach lining renews itself regularly.', 'Food leaves the stomach gradually and enters the small intestine.'] },
+      smallIntestine: { name: 'Small intestine', system: 'Digestive', color: '#e9bf79', location: 'Central and lower abdomen', description: 'The small intestine is a long, folded tube where most digestion and nutrient absorption take place.', function: 'Its lining absorbs nutrients from digested food and transfers them into the blood and lymph.', facts: ['Its inner surface has folds and villi that greatly increase absorption area.', 'It is divided into the duodenum, jejunum and ileum.'] },
+      largeIntestine: { name: 'Large intestine', system: 'Digestive', color: '#d99b75', location: 'Frames the small intestine in the abdomen', description: 'The large intestine is the final major part of the digestive tract.', function: 'It absorbs water and electrolytes and helps form and store stool before elimination.', facts: ['It includes the colon, rectum and anal canal.', 'Helpful gut microbes live in the large intestine.'] },
+      pancreas: { name: 'Pancreas', system: 'Digestive', color: '#d8a47c', location: 'Upper abdomen · behind the stomach', description: 'The pancreas is a gland located behind the stomach with both digestive and hormone-related roles.', function: 'It releases digestive enzymes into the small intestine and hormones such as insulin into the blood.', facts: ['Insulin helps regulate blood glucose.', 'Pancreatic enzymes help digest carbohydrates, fats and proteins.'] },
+      kidneys: { name: 'Kidneys', system: 'Urinary', color: '#86aef0', location: 'Back of the upper abdomen · one on each side of the spine', description: 'The kidneys are a pair of bean-shaped organs that continuously filter the blood.', function: 'They remove waste and extra water to make urine and help regulate salts, blood pressure and acid balance.', facts: ['Each kidney contains about a million tiny filtering units called nephrons.', 'The kidneys help activate vitamin D, which supports bone health.'] },
+      bladder: { name: 'Urinary bladder', system: 'Urinary', color: '#7db9e8', location: 'Pelvic cavity · behind the pubic bone', description: 'The urinary bladder is a hollow, muscular organ that stores urine until it is released.', function: 'It expands as urine arrives from the kidneys through the ureters and contracts during urination.', facts: ['The bladder wall contains a smooth muscle called the detrusor.', 'Two ureters carry urine from the kidneys to the bladder.'] }
+    };
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x07111b, 0.035);
+    const camera = new THREE.PerspectiveCamera(34, 1, 0.02, 100);
+    camera.position.set(0, 1.88, 7.4);
+
+    const renderer = new THREE.WebGLRenderer({ canvas: $('#scene'), antialias: true, alpha: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.9;
+    renderer.localClippingEnabled = true;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 1.68, 0);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.enablePan = true;
+    controls.minDistance = 0.3;
+    controls.maxDistance = 10.5;
+    controls.minPolarAngle = 0.12;
+    controls.maxPolarAngle = Math.PI - 0.12;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.65;
+
+    scene.add(new THREE.HemisphereLight(0xdde7ee, 0x1a2430, 0.9));
+    const keyLight = new THREE.DirectionalLight(0xfff1e4, 2.6);
+    keyLight.position.set(3.7, 5.5, 5);
+    keyLight.target.position.set(0, 2.2, 0); scene.add(keyLight.target);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    Object.assign(keyLight.shadow.camera, { left: -2.3, right: 2.3, top: 2.6, bottom: -2.6, near: 1, far: 14 });
+    keyLight.shadow.bias = -0.0004; keyLight.shadow.normalBias = 0.012; keyLight.shadow.radius = 3;
+    scene.add(keyLight);
+    const rimLight = new THREE.PointLight(0x9cc3d6, 12, 9);
+    rimLight.position.set(-3, 2.9, -2.4);
+    scene.add(rimLight);
+    const warmLight = new THREE.PointLight(0xffd2b0, 7, 8);
+    warmLight.position.set(3, 1.4, 2.5);
+    scene.add(warmLight);
+
+    const starPositions = [];
+    for (let i = 0; i < 520; i++) {
+      starPositions.push((Math.random() - .5) * 13, Math.random() * 5.8 - .3, (Math.random() - .5) * 8 - 1.8);
+    }
+    const starGeo = new THREE.BufferGeometry();
+    starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
+    const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0x6b9aa5, size: .014, transparent: true, opacity: .48 }));
+    scene.add(stars);
+
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(4.8, 80), new THREE.MeshBasicMaterial({ color: 0x0c202c, transparent: true, opacity: .22, side: THREE.DoubleSide }));
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -.035;
+    scene.add(floor);
+    const platform = new THREE.Mesh(new THREE.CylinderGeometry(.83, .91, .09, 64), new THREE.MeshStandardMaterial({ color: 0x193342, metalness: .62, roughness: .35 }));
+    platform.position.y = .015;
+    platform.receiveShadow = true;
+    scene.add(platform);
+    const platformRing = new THREE.Mesh(new THREE.TorusGeometry(.89, .012, 8, 100), new THREE.MeshBasicMaterial({ color: 0x58cbbb, transparent: true, opacity: .62 }));
+    platformRing.rotation.x = Math.PI / 2;
+    platformRing.position.y = .07;
+    scene.add(platformRing);
+    const extra = {
+      brain: ['Cerebrum, cerebellum and brainstem. Grey matter holds nerve-cell bodies; white matter holds nerve fibres. Three membranes (meninges) wrap it.', 'Stroke, migraine, epilepsy, dementia, concussion.'],
+      spinalCord: ['A grey-matter core surrounded by white-matter tracts. Thirty-one pairs of spinal nerves branch from it.', 'Spinal cord injury, nerve-root compression from a disc problem, multiple sclerosis.'],
+      lungs: ['Airways branch into bronchioles ending in alveoli. A thin membrane (pleura) surrounds each lung.', 'Asthma, COPD, pneumonia, lung cancer.'],
+      trachea: ['A tube reinforced by C-shaped cartilage rings, lined with ciliated cells and mucus-producing cells.', 'Airway narrowing (stenosis), infection, obstruction.'],
+      heart: ['Four chambers (two atria, two ventricles), four valves and a muscular wall called the myocardium.', 'Coronary artery disease, heart failure, arrhythmias, valve disease.'],
+      aorta: ['A thick wall of three layers (intima, media, adventitia). Parts: ascending aorta, arch, descending aorta.', 'Aneurysm, dissection, atherosclerosis.'],
+      venaCava: ['Large thin-walled veins: the superior and inferior vena cava, both opening into the right atrium.', 'Blood clots, compression by a mass (superior vena cava syndrome).'],
+      liver: ['Lobes made of tiny lobules of liver cells, supplied by both the hepatic artery and the portal vein.', 'Hepatitis, fatty liver disease, cirrhosis, liver cancer.'],
+      stomach: ['Regions: fundus, body and antrum. The wall has an acid-resistant lining, folds (rugae) and three muscle layers.', 'Gastritis, peptic ulcers, acid reflux, stomach cancer.'],
+      smallIntestine: ['Duodenum, jejunum and ileum. Folds and villi line the wall to increase absorption.', 'Coeliac disease, Crohn’s disease, infections, obstruction.'],
+      largeIntestine: ['Caecum, ascending, transverse, descending and sigmoid colon, then rectum and anal canal.', 'Diverticular disease, colitis, irritable bowel syndrome, colorectal cancer.'],
+      pancreas: ['Head, body and tail. Most tissue makes digestive enzymes; islet cells make hormones such as insulin.', 'Pancreatitis, diabetes, pancreatic cancer.'],
+      kidneys: ['Outer cortex, inner medulla with pyramids, and a renal pelvis draining to the ureter.', 'Kidney stones, chronic kidney disease, infection, polycystic kidney disease.'],
+      bladder: ['A muscular wall (detrusor) lined by stretchy epithelium. Ureters enter at the back and the urethra leaves below.', 'Urinary tract infection, bladder stones, overactive bladder, bladder cancer.']
+    };
+    const extraStruct = {
+      bone: ['Axial skeleton (skull, spine, ribs) plus limb and pelvic bones. This model draws a simplified version, not every bone.', 'Fractures, osteoporosis, arthritis.'],
+      muscle: ['Muscle fibres bundled in connective tissue and attached to bone by tendons. Only a few large groups are drawn here.', 'Strains, tendon problems, muscular dystrophies.']
+    };
+
+    // ===================== Real anatomy scene (BodyParts3D GLB layers) =====================
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+    organData.spleen = { name: 'Spleen', system: 'Lymphatic', color: '#8a4a5e', location: 'Upper left abdomen · beneath the diaphragm, behind the stomach', description: 'The spleen is a soft, blood-rich lymphoid organ on the left side of the upper abdomen.', function: 'It filters blood, removes worn-out red blood cells and supports immune responses.', facts: ['It stores a reserve of platelets and some immune cells.', 'People can live without a spleen, but are more vulnerable to some infections.'] };
+    extra.spleen = ['A capsule surrounds red pulp (blood filtering) and white pulp (immune tissue).', 'Enlarged spleen, rupture after abdominal trauma, infection-related changes.'];
+    const SYSTEM_TEXT = {
+      circulatory: 'The heart pumps blood through arteries to the tissues and back through veins. Valves keep the flow moving in one direction.',
+      respiratory: 'The airways carry air to the lungs, where oxygen enters the blood and carbon dioxide leaves it.',
+      digestive: 'The digestive tract breaks down food and absorbs nutrients and water. Accessory organs add bile and enzymes.',
+      nervous: 'The brain, spinal cord and nerves carry and process signals for sensation, movement and automatic regulation.',
+      skeletal: 'Bones support the body, protect organs and give muscles something to pull against.',
+      muscular: 'Skeletal muscles produce movement by contracting, and also stabilise joints and maintain posture.',
+      urinary: 'The kidneys filter blood and make urine, which passes through the ureters to the bladder.',
+      reproductive: 'The male reproductive structures in this dataset make and carry sperm and produce sex hormones.',
+      endocrine: 'Endocrine glands release hormones into the blood to coordinate metabolism, growth and stress responses.',
+      lymphatic: 'Lymphatic organs return tissue fluid to the circulation and support immune surveillance.'
+    };
+    const SYSTEMS = [
+      ['all', 'All structures', '#6fe0ce', '✦', []], ['circulatory', 'Circulatory', '#ff858a', '♥', ['organs', 'arteries', 'veins']],
+      ['respiratory', 'Respiratory', '#78c9f2', '◉', ['organs']], ['digestive', 'Digestive', '#ffc078', '◍', ['organs']],
+      ['nervous', 'Nervous', '#b69cff', '⌁', ['nerves']], ['skeletal', 'Skeletal', '#e8d6a8', '⌁', ['skeleton']],
+      ['muscular', 'Muscular', '#f18f9c', '◒', ['muscles']], ['urinary', 'Urinary', '#82b8ff', '◇', ['organs']],
+      ['reproductive', 'Reproductive', '#d9a0b5', '◈', ['organs']], ['endocrine', 'Endocrine', '#f0c36d', '✧', ['organs']],
+      ['lymphatic', 'Lymphatic', '#9fcf9a', '◌', ['organs']]
+    ];
+    const LAYERS = { skin: 'Skin', organs: 'Organs', skeleton: 'Skeleton', muscles: 'Muscles', arteries: 'Arteries', veins: 'Veins', vessels: 'Vessels', nerves: 'Nerves' };
+    const DEFAULT_ON = { skin: true, organs: true, skeleton: false, muscles: false, arteries: false, veins: false, vessels: false, nerves: false };
+    const OPTIONAL = new Set(['skin', 'skeleton', 'muscles', 'arteries', 'veins', 'vessels', 'nerves']);
+    const unavailable = {};
+    let ORGAN_LAYER = {}, metaCounts = {}, organCount = {}, lastStep = null, SEC = {};
+    let MODEL = 'male', DIR = 'models/male/', modelGen = 0; const SCALE = 1.9, DEFAULT_SKIN = .16;
+    const layerOn = { ...DEFAULT_ON };
+    const groupOf = m => {
+      if (m.o === 'heart') return 'circulatory';
+      switch (m.s) {
+        case 'cardiac': case 'arterial': case 'venous': return 'circulatory';
+        case 'connective': return m.l === 'skeleton' ? 'skeletal' : 'muscular';
+        case 'skeletal': return 'skeletal'; case 'muscular': return 'muscular';
+        case 'respiratory': case 'digestive': case 'nervous': case 'urinary': case 'reproductive': case 'endocrine': case 'lymphatic': return m.s;
+        default: return 'other';
+      }
+    };
+    const SYS_COLOR = { vessels: 0xb5342f, skeleton: 0xe3d8b8, muscles: 0x9a4540, arteries: 0xb5342f, veins: 0x3d62a0, nerves: 0xe0c466 };
+    const ORGAN_COLOR = { heart: 0x9c3c3c, brain: 0xd8bbb2, spinalCord: 0xe6d9b0, lungs: 0xc4a3a8, liver: 0x7d3a2b, stomach: 0xc98e7c, smallIntestine: 0xd29a82, largeIntestine: 0xc08a6f, pancreas: 0xd6a77f, kidneys: 0x7e3b3a, bladder: 0xd29b8e, spleen: 0x70303f, trachea: 0xc8d5d8, aorta: 0xc0393a, venaCava: 0x41669f };
+    const SYS_ORG = { sensory: 0xc6d6d9, reproductive: 0xc0908a, endocrine: 0xd9a55b, lymphatic: 0x8f7399, digestive: 0xc99a80, urinary: 0x9a5a52, respiratory: 0xb9c6cb, nervous: 0xd8bbb2 };
+    const colorOf = m => {
+      if (m.l === 'vessels') return m.s === 'venous' ? 0x3d62a0 : 0xb5342f;
+      if (m.l === 'skin') return /hair|eyebrow/i.test(m.n) ? 0x2b211c : /lip/i.test(m.n) ? 0xb7766f : 0xd2ac94;
+      if (m.o && ORGAN_COLOR[m.o] && m.l !== 'arteries' && m.l !== 'veins') return ORGAN_COLOR[m.o];
+      if (m.l === 'organs') return SYS_ORG[m.s] || 0xc9a38d;
+      return SYS_COLOR[m.l] || 0xcccccc;
+    };
+    const SURFACE = { skeleton: [.62, 0, .1], muscles: [.55, .05, .6], vessels: [.34, .5, .1], arteries: [.34, .5, .1], veins: [.34, .5, .1], nerves: [.45, .2, .1], organs: [.42, .45, .5], skin: [.55, .1, .3] };
+    const matCache = new Map(), matReg = {};
+    const clipPlane = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0); let sectionOn = false, sectionFlip = 1;
+    const layerFade = {}; Object.keys(LAYERS).forEach(l => { layerFade[l] = DEFAULT_ON[l] ? 1 : 0; });
+    function mat(kind, color, layer) {
+      const key = kind + color + layer;
+      if (matCache.has(key)) return matCache.get(key);
+      const [rough, clear, sheen] = SURFACE[layer] || SURFACE.organs;
+      const m = new THREE.MeshPhysicalMaterial({ color, roughness: rough, clearcoat: clear, clearcoatRoughness: .45, sheen, sheenRoughness: .6, sheenColor: new THREE.Color(0xffd9d0), envMapIntensity: .65 });
+      if (kind === 'faded') { m.transparent = true; m.opacity = .07; m.depthWrite = false; }
+      if (kind === 'hl') { m.emissive = new THREE.Color(color); m.emissiveIntensity = .55; }
+      if (kind === 'hover') { m.emissive = new THREE.Color(color); m.emissiveIntensity = .22; }
+      if (sectionOn) { m.clippingPlanes = [clipPlane]; m.clipShadows = true; }
+      (matReg[layer] = matReg[layer] || []).push({ m, kind });
+      matCache.set(key, m); return m;
+    }
+
+    const bodyRoot = new THREE.Group();
+    bodyRoot.scale.setScalar(SCALE);
+    scene.add(bodyRoot);
+    const recs = new Map(), skinMats = [], loaded = {}, pending = {}, failures = {};
+    let metas = [], metaById = new Map(), activeSystem = 'all', isolate = false, isolateSet = null, inspectKey = null, explodeTarget = 0, explodeNow = 0, tween = null, skinOpacity = DEFAULT_SKIN;
+    const hidden = new Set(), selected = [], pickables = [];
+    const gltfLoader = new GLTFLoader(); gltfLoader.setMeshoptDecoder(MeshoptDecoder);
+    const C0 = new THREE.Vector3(0, .95, 0), EXPLODE_K = { organs: 1.1, skeleton: .5, muscles: .8, arteries: .9, veins: .9, nerves: .7, skin: 0 };
+
+    // ---- error / loading UI ----
+    const toast = (msg, keep) => { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); if (!keep) toast.t = setTimeout(() => { t.hidden = true; }, 8000); };
+    function showAssetError() {
+      const box = $('#assetError');
+      const rows = Object.values(failures).map(f => `<li><code>${f.file}</code><span>${f.message}</span></li>`).join('');
+      const fileHint = location.protocol === 'file:' ? '<p><strong>This page was opened from disk (file://).</strong> Browsers block model loading that way. Start a local server instead (see README.md).</p>' : '';
+      box.innerHTML = `<div class="asset-card"><h3>Required anatomy files could not be loaded</h3><p>No substitute shapes are drawn. Missing or unreadable files:</p><ul>${rows}</ul>${fileHint}<p>Each model needs <code>parts.json</code> and <code>organs.glb</code> in its folder (<code>models/male/</code>, <code>models/female/</code>). Add the missing files, then reload the page. Any model that was already loaded keeps working.</p><button type="button" id="assetErrorClose">Dismiss</button></div>`;
+      box.hidden = false;
+      $('#assetErrorClose').addEventListener('click', () => { box.hidden = true; });
+      $('#assetStatus').textContent = 'Required anatomy files missing';
+      $('#loading').classList.add('hidden');
+    }
+    const setBusy = (layer, on) => { const b = document.querySelector(`[data-layer="${layer}"]`); if (b) { if (on) b.setAttribute('data-loading', ''); else b.removeAttribute('data-loading'); } };
+    async function fetchBuffer(url, onProgress) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText || ''}`.trim());
+      if (/text\/html/i.test(res.headers.get('content-type') || '')) throw new Error('Server returned an HTML page instead of the file (wrong path?)');
+      const total = +res.headers.get('content-length') || 0;
+      if (!res.body || !total) { const b = await res.arrayBuffer(); onProgress(1); return b; }
+      const reader = res.body.getReader(), parts = []; let got = 0;
+      for (;;) { const { done, value } = await reader.read(); if (done) break; parts.push(value); got += value.length; onProgress(Math.min(1, got / total)); }
+      const out = new Uint8Array(got); let o = 0; parts.forEach(p => { out.set(p, o); o += p.length; });
+      return out.buffer;
+    }
+    function markUnavailable(name, file, err) {
+      const msg = String(err && err.message ? err.message : err);
+      unavailable[name] = msg; layerOn[name] = false;
+      console.error(`[anatomy] Could not load ${file}: ${msg}`);
+      if (OPTIONAL.has(name)) toast(`${LAYERS[name]} layer is not available: ${file} could not be loaded (${msg}). It is not part of the current model.`);
+      else { failures[name] = { file, message: msg }; showAssetError(); }
+      refreshAvailability(); syncButtons();
+    }
+    function loadLayer(name) {
+      if (loaded[name]) return Promise.resolve(true);
+      if (unavailable[name]) return Promise.resolve(false);
+      if (pending[name]) return pending[name];
+      setBusy(name, true);
+      const file = `${DIR}${name}.glb`;
+      const gen = modelGen;
+      pending[name] = (async () => {
+        try {
+          const buf = await fetchBuffer(file, p => {
+            const txt = `Loading ${LAYERS[name]}… ${Math.round(p * 100)}%`;
+            if (OPTIONAL.has(name)) toast(txt, true); else $('#loadingText').textContent = txt;
+          });
+          if (new TextDecoder().decode(new Uint8Array(buf, 0, 4)) !== 'glTF') throw new Error('Not a valid GLB file');
+          const gltf = await gltfLoader.parseAsync(buf, DIR);
+          if (gen !== modelGen) { gltf.scene.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); return false; }
+          if (bodyRoot.getObjectByName('layer-' + name)) return true;
+          const grp = gltf.scene; grp.name = 'layer-' + name;
+          grp.traverse(o => {
+            if (!o.isMesh) return;
+            const meta = metaById.get(o.userData.id);
+            if (!meta) { console.warn(`[anatomy] ${file}: mesh ${o.name} has no entry in parts.json`); return; }
+            const color = colorOf(meta);
+            const rec = { id: meta.id, meta, mesh: o, layer: name, group: groupOf(meta), color, center: new THREE.Vector3(...[0, 1, 2].map(i => (meta.b[0][i] + meta.b[1][i]) / 2)) };
+            if (name === 'skin') { rec.mat = mat('base', color, 'skin').clone(); rec.mat.transparent = true; rec.mat.opacity = skinOpacity; rec.mat.depthWrite = skinOpacity > .98; skinMats.push(rec.mat); }
+            else { rec.base = mat('base', color, name); rec.faded = mat('faded', color, name); rec.hl = mat('hl', color, name); rec.hover = mat('hover', color, name); }
+            o.material = rec.mat || rec.base; o.userData.id = meta.id; o.castShadow = ['organs', 'skeleton', 'muscles'].includes(name); o.receiveShadow = name !== 'skin';
+            recs.set(meta.id, rec);
+          });
+          bodyRoot.add(grp); loaded[name] = true; applyFade(name); if (sectionOn) applySection();
+          if (name === 'skin') $('#skinOpacity').disabled = false;
+          if (OPTIONAL.has(name)) $('#toast').hidden = true;
+          setStatus(); updateCounts();
+          return true;
+        } catch (err) { if (gen !== modelGen) return false; markUnavailable(name, file, err); return false; }
+        finally { setBusy(name, false); }
+      })();
+      return pending[name];
+    }
+    function updateCounts() {
+      SYSTEMS.forEach(([id]) => { const el = $('#cnt-' + id); if (!el) return; const n = id === 'all' ? metas.length : (metaCounts[id] || 0); el.textContent = n || '–'; });
+    }
+    const contentBox = () => {
+      const box = new THREE.Box3();
+      recs.forEach(r => { const d = r.meta.b, big = Math.max(d[1][0] - d[0][0], d[1][1] - d[0][1], d[1][2] - d[0][2]) > .04; if (layerOn[r.layer] && r.mesh.visible && big) box.union(new THREE.Box3(new THREE.Vector3(...r.meta.b[0]), new THREE.Vector3(...r.meta.b[1]))); });
+      return box;
+    };
+    function viewFor(dirName) {
+      const box = contentBox(); if (box.isEmpty()) box.set(new THREE.Vector3(-.3, 0, -.15), new THREE.Vector3(.3, 1.73, .15));
+      const size = box.getSize(new THREE.Vector3()).multiplyScalar(SCALE), c = box.getCenter(new THREE.Vector3()).multiplyScalar(SCALE);
+      const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      const dist = Math.max(size.y / 2 / t, size.x / 2 / (t * camera.aspect)) * 1.12 + size.z / 2 + .15;
+      const dir = { front: [0, 0, 1], back: [0, 0, -1], left: [1, 0, 0], right: [-1, 0, 0] }[dirName];
+      return { pos: c.clone().add(new THREE.Vector3(...dir).multiplyScalar(dist)), target: c };
+    }
+    function goView(name, instant) {
+      const v = viewFor(name);
+      if (instant) { tween = null; camera.position.copy(v.pos); controls.target.copy(v.target); controls.update(); } else flyTo(v.pos, v.target);
+    }
+    const missingMsg = (layer, what) => { const t = `${what} is not included in the current model (${DIR}${layer}.glb is unavailable).`; $('#stageDescription').textContent = t; toast(t); };
+
+    // ---- visibility / materials ----
+    function styleOf(r) {
+      if (r.layer === 'skin') return r.mat;
+      if (selected.includes(r.id)) return r.hl;
+      return activeSystem === 'all' || r.group === activeSystem ? r.base : r.faded;
+    }
+    function refresh() {
+      pickables.length = 0;
+      const selSet = new Set(selected);
+      for (const r of recs.values()) {
+        const vis = (layerOn[r.layer] || layerFade[r.layer] > .01) && !hidden.has(r.id) && (!isolate || (isolateSet || selSet).has(r.id));
+        r.mesh.visible = vis;
+        if (!vis) continue;
+        r.mesh.material = styleOf(r);
+        if (r.layer === 'skin') { if (skinOpacity > .6) pickables.push(r.mesh); }
+        else if (activeSystem === 'all' || r.group === activeSystem) pickables.push(r.mesh);
+      }
+    }
+    function syncButtons() {
+      document.querySelectorAll('[data-model]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.model === MODEL)));
+      document.querySelectorAll('[data-layer]').forEach(b => b.setAttribute('aria-pressed', String(!!layerOn[b.dataset.layer])));
+      $('#explodeBtn').setAttribute('aria-pressed', String(explodeTarget > 0));
+      $('#isolateBtn').setAttribute('aria-pressed', String(isolate));
+      document.querySelectorAll('.system-btn').forEach(b => b.classList.toggle('active', b.dataset.system === activeSystem));
+    }
+    async function enableLayers(list) {
+      list.forEach(l => { if (!unavailable[l]) layerOn[l] = true; });
+      syncButtons();
+      await Promise.all(list.map(loadLayer));
+      list.forEach(l => { if (unavailable[l]) layerOn[l] = false; });
+      refresh(); syncButtons();
+    }
+
+    // ---- camera ----
+    function stopRotate() { controls.autoRotate = false; $('#rotateBtn').classList.remove('active'); $('#rotateBtn').setAttribute('aria-pressed', 'false'); }
+    function flyTo(pos, target, ms = 900) { stopRotate(); tween = { p0: camera.position.clone(), t0: controls.target.clone(), p1: pos, t1: target, s: performance.now(), ms }; }
+    function focusIds(ids) {
+      const box = new THREE.Box3();
+      ids.forEach(id => { const m = metaById.get(id); if (m) box.union(new THREE.Box3(new THREE.Vector3(...m.b[0]), new THREE.Vector3(...m.b[1]))); });
+      if (box.isEmpty()) return;
+      const c = box.getCenter(new THREE.Vector3()).multiplyScalar(SCALE), size = box.getSize(new THREE.Vector3()).length() * SCALE;
+      const dist = Math.min(8, Math.max(.7, size * 1.5));
+      const dir = camera.position.clone().sub(controls.target).normalize();
+      flyTo(c.clone().add(dir.multiplyScalar(dist)), c);
+    }
+    function tick() {
+      if (tween) {
+        const k = Math.min(1, (performance.now() - tween.s) / tween.ms), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+        camera.position.lerpVectors(tween.p0, tween.p1, e); controls.target.lerpVectors(tween.t0, tween.t1, e);
+        if (k >= 1) tween = null;
+      }
+      if (Math.abs(explodeTarget - explodeNow) > 1e-3) {
+        explodeNow += (explodeTarget - explodeNow) * kExp;
+        for (const r of recs.values()) r.mesh.position.copy(r.center).sub(C0).multiplyScalar((EXPLODE_K[r.layer] || 0) * .55 * explodeNow);
+      }
+    }
+
+    // ---- info panel ----
+    const region = m => {
+      const x = (m.b[0][0] + m.b[1][0]) / 2, y = (m.b[0][1] + m.b[1][1]) / 2;
+      const r = y > 1.48 ? 'Head and neck' : (Math.abs(x) > .2 && y > .75) ? 'Upper limb' : y > 1.18 ? 'Thorax' : y > .9 ? 'Abdomen' : y > .78 ? 'Pelvis' : 'Lower limb';
+      const side = /\bleft\b/i.test(m.n) ? ' · left side' : /\bright\b/i.test(m.n) ? ' · right side' : '';
+      return r + side;
+    };
+    const hex = c => '#' + c.toString(16).padStart(6, '0');
+    const setBlock = (id, text) => { const el = $(id); el.textContent = text || ''; el.parentElement.hidden = !text; };
+    function showInfo(rec, wholeKey, count) {
+      const m = rec.meta, key = wholeKey || m.o, o = key && organData[key];
+      const grp = rec.group === 'other' ? 'Structure' : rec.group[0].toUpperCase() + rec.group.slice(1);
+      $('#organSystem').textContent = `${(o ? o.system : grp).toUpperCase()} SYSTEM`;
+      $('#organTitle').textContent = wholeKey ? o.name : m.n;
+      $('#organLocation').textContent = wholeKey ? `${o.location}${count > 1 ? ` · ${count} structures` : ''}` : `${o ? 'Part of ' + o.name.toLowerCase() + ' · ' : ''}${region(m)} (approx.)`;
+      $('#organDescription').textContent = o ? o.description : (SYSTEM_TEXT[rec.group] || 'A structure from the BodyParts3D reference anatomy.');
+      setBlock('#organFunction', o && o.function);
+      $('#organFacts').parentElement.hidden = !o;
+      $('#organFacts').innerHTML = o ? o.facts.map(f => `<li>${f}</li>`).join('') : '';
+      const e = o && extra[key];
+      setBlock('#organStructure', e && e[0]); setBlock('#organConditions', e && e[1]);
+      const col = hex(o ? parseInt(o.color.slice(1), 16) : rec.color);
+      $('#organSwatch').style.background = col; $('#organSwatch').style.color = col;
+      $('#organSystemPill').textContent = o ? o.system : grp;
+      const rel = $('#organRelated'); rel.innerHTML = '';
+      const list = o ? Object.entries(organData).filter(([k, d]) => k !== key && d.system === o.system) : [];
+      list.forEach(([k, d]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'rel-chip'; b.textContent = d.name; b.addEventListener('click', () => selectOrgan(k)); rel.appendChild(b); });
+      rel.parentElement.hidden = !list.length;
+      const note = $('#dataNote'); const lim = (MODELS[MODEL].limits || {})[key]; note.textContent = lim || ''; note.hidden = !lim;
+      $('#stageDescription').textContent = `${wholeKey ? o.name : m.n} selected`;
+      document.querySelectorAll('.quick-organ').forEach(b => b.classList.toggle('selected', b.dataset.organ === key));
+    }
+
+    // ---- selection ----
+    function setSelection(ids, primary, wholeKey) {
+      selected.length = 0; selected.push(...ids);
+      refresh();
+      const rec = recs.get(primary || ids[0]);
+      if (rec) { showInfo(rec, wholeKey, ids.length); if (!inspectKey) setLabels([{ ids: wholeKey ? ids : [rec.id], text: wholeKey ? organData[wholeKey].name : rec.meta.n }]); }
+    }
+    async function selectOrgan(key, focus = true) {
+      exitInspect();
+      const layer = ORGAN_LAYER[key], name = organData[key].name;
+      if (layer) {
+        if (unavailable[layer]) return missingMsg(layer, name);
+        if (!layerOn[layer]) await enableLayers([layer]); else await loadLayer(layer);
+        if (unavailable[layer]) return missingMsg(layer, name);
+      }
+      const ids = [...recs.values()].filter(r => r.meta.o === key && (r.layer === layer || layerOn[r.layer])).map(r => r.id);
+      if (!ids.length) { $('#stageDescription').textContent = `${name} is not included in the loaded data`; return; }
+      setSelection(ids, ids[0], key);
+      if (focus) focusIds(ids);
+    }
+    async function selectPart(id, focus = true, keep = false) {
+      if (!keep) exitInspect();
+      const m = metaById.get(id); if (!m) return;
+      if (unavailable[m.l]) return missingMsg(m.l, m.n);
+      if (!layerOn[m.l]) await enableLayers([m.l]); else await loadLayer(m.l);
+      if (!recs.has(id)) return missingMsg(m.l, m.n);
+      setSelection([id], id);
+      if (focus) focusIds([id]);
+    }
+    function clearSelection() { exitInspect(); setLabels([]); selected.length = 0; isolate = false; isolateSet = null; refresh(); syncButtons(); $('#stageDescription').textContent = 'Select a structure to begin exploring'; }
+
+    // ---- picking ----
+    const raycaster = new THREE.Raycaster(), pointer = new THREE.Vector2(), tip = $('#tip'), stageEl = $('.stage');
+    let down = null, hoverRec = null, hoverQueued = false, lastMove = null;
+    function pick(e) {
+      const r = renderer.domElement.getBoundingClientRect();
+      pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      raycaster.setFromCamera(pointer, camera);
+      const hit = raycaster.intersectObjects(pickables, false)[0];
+      return hit ? recs.get(hit.object.userData.id) : null;
+    }
+    renderer.domElement.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY }; tip.style.opacity = 0; });
+    renderer.domElement.addEventListener('pointerup', e => {
+      if (!down) return;
+      const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y); down = null;
+      if (moved > 5) return;
+      const rec = pick(e);
+      if (!rec) return;
+      if (e.shiftKey && selected.length) { if (!selected.includes(rec.id)) selected.push(rec.id); refresh(); showInfo(rec, null, 1); }
+      else { setSelection([rec.id], rec.id); }
+      stopRotate();
+    });
+    renderer.domElement.addEventListener('pointermove', e => {
+      if (e.buttons) { tip.style.opacity = 0; return; }
+      lastMove = e;
+      if (hoverQueued) return;
+      hoverQueued = true;
+      requestAnimationFrame(() => {
+        hoverQueued = false;
+        const rec = pick(lastMove);
+        if (hoverRec && hoverRec !== rec && hoverRec.layer !== 'skin') hoverRec.mesh.material = styleOf(hoverRec);
+        hoverRec = rec;
+        renderer.domElement.style.cursor = rec ? 'pointer' : 'grab';
+        if (!rec) { tip.style.opacity = 0; return; }
+        if (rec.layer !== 'skin' && !selected.includes(rec.id)) rec.mesh.material = rec.hover;
+        const b = stageEl.getBoundingClientRect();
+        tip.textContent = rec.meta.n; tip.style.left = (lastMove.clientX - b.left + 14) + 'px'; tip.style.top = (lastMove.clientY - b.top + 14) + 'px'; tip.style.opacity = 1;
+      });
+    });
+    renderer.domElement.addEventListener('pointerleave', () => { tip.style.opacity = 0; if (hoverRec && hoverRec.layer !== 'skin') hoverRec.mesh.material = styleOf(hoverRec); hoverRec = null; });
+
+    // ---- controls UI ----
+    const nav = $('#systemList');
+    SYSTEMS.forEach(([id, name, color, icon]) => {
+      const b = document.createElement('button');
+      b.className = 'system-btn' + (id === 'all' ? ' active' : ''); b.dataset.system = id;
+      b.innerHTML = `<span class="system-icon" style="--sys-color:${color}">${icon}</span><span>${name}</span><span class="system-count" id="cnt-${id}">–</span>`;
+      b.addEventListener('click', async () => {
+        const def = SYSTEMS.find(s => s[0] === id); exitInspect();
+        activeSystem = id; await enableLayers(def[4]); refresh(); syncButtons();
+        const missing = def[4].filter(l => unavailable[l]).map(l => LAYERS[l]);
+        $('#stageDescription').textContent = (id === 'all' ? 'All loaded structures shown' : `${def[1]} system highlighted · other structures faded`) + (missing.length ? ` · not in current model: ${missing.join(', ')}` : '');
+      });
+      nav.appendChild(b);
+    });
+    document.querySelectorAll('[data-layer]').forEach(b => b.addEventListener('click', async () => {
+      const l = b.dataset.layer; if (unavailable[l]) return;
+      document.querySelectorAll('[data-step]').forEach(x => x.setAttribute('aria-pressed', 'false')); lastStep = null;
+      layerOn[l] = !layerOn[l]; syncButtons();
+      if (layerOn[l]) await loadLayer(l);
+      refresh(); syncButtons();
+    }));
+    $('#skinOpacity').addEventListener('input', e => { setSkinOpacity(e.target.value / 100, false); refresh(); });
+    document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => { goView(b.dataset.view); $('#stageDescription').textContent = `${b.textContent} view`; }));
+    $('#explodeBtn').addEventListener('click', () => { explodeTarget = explodeTarget ? 0 : 1; syncButtons(); });
+    const need = () => { if (!selected.length) { $('#stageDescription').textContent = 'Select a structure first'; return false; } return true; };
+    $('#isolateBtn').addEventListener('click', () => { if (!isolate) { if (!need()) return; isolateSet = new Set(selected); } else { isolateSet = null; if (inspectKey) exitInspect(); } isolate = !isolate; refresh(); syncButtons(); });
+    $('#hideBtn').addEventListener('click', () => { if (!need()) return; selected.forEach(id => hidden.add(id)); selected.length = 0; refresh(); $('#stageDescription').textContent = 'Selection hidden · use Show all to restore'; });
+    $('#showAllBtn').addEventListener('click', () => { hidden.clear(); exitInspect(); isolate = false; isolateSet = null; refresh(); syncButtons(); });
+    $('#rotateBtn').addEventListener('click', () => { controls.autoRotate = !controls.autoRotate; $('#rotateBtn').classList.toggle('active', controls.autoRotate); $('#rotateBtn').setAttribute('aria-pressed', String(controls.autoRotate)); });
+    $('#zoomIn').addEventListener('click', () => { const d = camera.position.clone().sub(controls.target); camera.position.copy(controls.target).add(d.multiplyScalar(.8)); controls.update(); });
+    $('#zoomOut').addEventListener('click', () => { const d = camera.position.clone().sub(controls.target); camera.position.copy(controls.target).add(d.multiplyScalar(1.25)); controls.update(); });
+    $('#resetBtn').addEventListener('click', () => {
+      Object.keys(layerOn).forEach(l => { layerOn[l] = !!DEFAULT_ON[l] && !unavailable[l]; });
+      hidden.clear(); isolate = false; explodeTarget = 0; activeSystem = 'all'; selected.length = 0;
+      exitInspect(); setSkinOpacity(DEFAULT_SKIN, true); applySection();
+      refresh(); syncButtons(); goView('front', true); userMoved = false;
+      controls.autoRotate = true; $('#rotateBtn').classList.add('active'); $('#rotateBtn').setAttribute('aria-pressed', 'true');
+    });
+    document.querySelectorAll('.quick-organ').forEach(b => b.addEventListener('click', () => selectOrgan(b.dataset.organ)));
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { if ($('#credits').open) $('#credits').close(); else clearSelection(); } });
+    $('#creditsBtn').addEventListener('click', () => $('#credits').showModal());
+    $('#creditsClose').addEventListener('click', () => $('#credits').close());
+
+    // ---- search ----
+    const search = $('#organSearch'), results = $('#searchResults');
+    const layerNote = l => unavailable[l] ? ' · not available' : (loaded[l] ? '' : ' · loads on click');
+    search.addEventListener('input', () => {
+      const q = search.value.trim().toLowerCase();
+      if (!q) { results.style.display = 'none'; results.innerHTML = ''; return; }
+      const organs = Object.entries(organData).filter(([, d]) => d.name.toLowerCase().includes(q) || d.system.toLowerCase().includes(q)).map(([k, d]) => ({ kind: 'organ', key: k, name: d.name + ' (whole organ)', sys: d.system + layerNote(ORGAN_LAYER[k]), color: d.color, off: !!unavailable[ORGAN_LAYER[k]] }));
+      const seen = new Set(), rank = m => (loaded[m.l] ? 0 : 2) + (m.n.toLowerCase().startsWith(q) ? 0 : 1);
+      const parts = metas.filter(m => m.n.toLowerCase().includes(q)).sort((a, b) => rank(a) - rank(b) || a.n.length - b.n.length)
+        .filter(m => { const k = m.n + m.l; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 10)
+        .map(m => ({ kind: 'part', key: m.id, name: m.n, sys: LAYERS[m.l] + layerNote(m.l), color: hex(colorOf(m)), off: !!unavailable[m.l] }));
+      const all = [...organs, ...parts].slice(0, 12);
+      results.innerHTML = all.length ? all.map(r => `<button type="button" ${r.off ? 'disabled' : ''} data-kind="${r.kind}" data-key="${r.key}" role="option"><i class="mini-dot" style="background:${r.color}"></i><span>${r.name}</span><span style="margin-left:auto;color:#748a9a;font-size:10px">${r.sys}</span></button>`).join('') : '<div style="padding:10px;color:#8196a8;font-size:12px">No matching structures in the model data</div>';
+      results.style.display = 'block';
+    });
+    results.addEventListener('click', e => {
+      const b = e.target.closest('button[data-key]'); if (!b || b.disabled) return;
+      search.value = b.querySelector('span').textContent.replace(' (whole organ)', ''); results.style.display = 'none';
+      b.dataset.kind === 'organ' ? selectOrgan(b.dataset.key) : selectPart(b.dataset.key);
+    });
+    search.addEventListener('keydown', e => { if (e.key === 'Escape') results.style.display = 'none'; if (e.key === 'Enter') results.querySelector('button[data-key]:not([disabled])')?.click(); });
+    document.addEventListener('click', e => { if (!e.target.closest('.search-wrap')) results.style.display = 'none'; });
+
+    function resize() {
+      const rect = renderer.domElement.getBoundingClientRect();
+      camera.aspect = Math.max(1, rect.width) / Math.max(1, rect.height); camera.updateProjectionMatrix(); renderer.setSize(Math.max(1, rect.width), Math.max(1, rect.height), false);
+    }
+    window.addEventListener('resize', resize); resize(); controls.update();
+    const clock = new THREE.Clock();
+    (function animate() { requestAnimationFrame(animate); controls.update(); tick(); stars.rotation.y = clock.getElapsedTime() * .004; renderer.render(scene, camera); })();
+
+    // ---- layer fade, skin opacity, cross-section ----
+    function applyFade(layer) {
+      const f = layerFade[layer];
+      if (layer === 'skin') { skinMats.forEach(m => { m.opacity = skinOpacity * f; m.depthWrite = skinOpacity * f > .98; }); return; }
+      (matReg[layer] || []).forEach(({ m, kind }) => {
+        const tr = kind === 'faded' || f < .999;
+        m.opacity = kind === 'faded' ? .07 * f : f; m.depthWrite = kind !== 'faded' && f > .98;
+        if (m.transparent !== tr) { m.transparent = tr; m.needsUpdate = true; }
+      });
+    }
+    // ---- memory management: unload unused heavy layers (keeps at most 2 off-screen) ----
+    const HEAVY = ['muscles', 'skeleton', 'arteries', 'veins', 'vessels', 'nerves'];
+    const setStatus = () => { $('#assetStatus').textContent = `${MODELS[MODEL].label} · ${MODELS[MODEL].src} · ${Object.keys(loaded).filter(l => loaded[l]).map(l => LAYERS[l]).join(', ')} · ${recs.size.toLocaleString()} structures`; };
+    function unloadLayer(name) {
+      const g = bodyRoot.getObjectByName('layer-' + name);
+      if (!g || layerOn[name] || inspectKey) return;
+      g.traverse(o => { if (o.isMesh) { o.geometry.dispose(); recs.delete(o.userData.id); } });
+      bodyRoot.remove(g); delete loaded[name]; delete pending[name]; delete matReg[name];
+      hoverRec = null; updateCounts(); setStatus(); refresh();
+      console.info(`[anatomy] Unloaded ${name} layer to free memory (it reloads when switched on again)`);
+    }
+    function trimLayers() {
+      const have = HEAVY.filter(l => loaded[l]); if (have.length <= 2) return;
+      have.filter(l => !layerOn[l] && layerFade[l] <= .003).slice(0, have.length - 2).forEach(unloadLayer);
+    }
+    function setSkinOpacity(v, syncSlider) { skinOpacity = v; if (syncSlider) $('#skinOpacity').value = Math.round(v * 100); applyFade('skin'); }
+    const fadeTick = () => {
+      Object.keys(layerFade).forEach(l => {
+        const t = layerOn[l] ? 1 : 0, d = t - layerFade[l];
+        if (Math.abs(d) <= .003) { if (layerFade[l] !== t) { layerFade[l] = t; applyFade(l); } return; }
+        layerFade[l] += d * kFade; applyFade(l);
+        if (Math.abs(t - layerFade[l]) <= .003) { layerFade[l] = t; applyFade(l); refresh(); if (t === 0) trimLayers(); }
+      });
+    };
+    function applySection() {
+      const axis = $('#sectionAxis').value; sectionOn = axis !== 'off';
+      $('#sectionPos').disabled = !sectionOn; $('#sectionFlip').disabled = !sectionOn;
+      if (sectionOn) {
+        const [a, b] = SEC[axis], pos = a + (b - a) * $('#sectionPos').value / 100, n = new THREE.Vector3();
+        n[axis] = -sectionFlip; clipPlane.normal.copy(n); clipPlane.constant = sectionFlip * pos;
+      }
+      [...matCache.values(), ...skinMats].forEach(m => { const was = !!m.clippingPlanes; m.clippingPlanes = sectionOn ? [clipPlane] : null; m.clipShadows = true; if (was !== sectionOn) m.needsUpdate = true; });
+    }
+    $('#sectionAxis').addEventListener('change', () => { if ($('#sectionAxis').value !== 'off') { $('#sectionPos').value = 50; } applySection(); });
+    $('#sectionPos').addEventListener('input', applySection);
+    $('#sectionFlip').addEventListener('click', () => { sectionFlip = -sectionFlip; applySection(); });
+
+    // ---- dissection steps ----
+    let STEPS = {};
+    document.querySelectorAll('[data-step]').forEach(b => b.addEventListener('click', async () => {
+      const key = b.dataset.step, st = STEPS[key]; lastStep = key;
+      exitInspect(); setLabels([]); hidden.clear(); isolate = false; isolateSet = null; selected.length = 0; activeSystem = st.sys;
+      Object.keys(layerOn).forEach(l => { layerOn[l] = st.layers.includes(l) && !unavailable[l]; });
+      if (st.skin != null) setSkinOpacity(st.skin, true);
+      document.querySelectorAll('[data-step]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      syncButtons();
+      await Promise.all(st.layers.map(loadLayer));
+      st.layers.forEach(l => { if (unavailable[l]) layerOn[l] = false; });
+      refresh(); syncButtons(); goView('front');
+      const miss = st.layers.filter(l => unavailable[l]).map(l => LAYERS[l]);
+      $('#stageDescription').textContent = `${b.textContent}${miss.length ? ' · not in current model: ' + miss.join(', ') : ''}`;
+    }));
+
+    // ---- leader-line labels ----
+    const labelsEl = $('#labelLayer'), leaders = $('#leaders'); let labels = [];
+    function setLabels(items) {
+      labelsEl.innerHTML = ''; labels = items.slice(0, 14);
+      labels.forEach(l => { l.el = document.createElement('div'); l.el.className = 'anat-label'; l.el.textContent = l.text; labelsEl.appendChild(l.el); });
+      if (!labels.length) leaders.innerHTML = '';
+    }
+    const _v = new THREE.Vector3();
+    function anchorOf(l) {
+      let n = 0; _v.set(0, 0, 0);
+      l.ids.forEach(id => { const r = recs.get(id); if (r && r.mesh.visible) { _v.add(r.center).add(r.mesh.position); n++; } });
+      return n ? bodyRoot.localToWorld(_v.multiplyScalar(1 / n).clone()) : null;
+    }
+    function updateLabels() {
+      if (!labels.length) return;
+      const W = renderer.domElement.clientWidth, H = renderer.domElement.clientHeight;
+      const pts = labels.map(l => { const w = anchorOf(l); if (!w) { l.el.style.display = 'none'; return null; } const p = w.project(camera); if (p.z > 1) { l.el.style.display = 'none'; return null; } return { l, x: (p.x + 1) / 2 * W, y: (1 - p.y) / 2 * H }; }).filter(Boolean);
+      let svg = '';
+      const place = (arr, side) => {
+        let last = -1e9;
+        arr.sort((a, b) => a.y - b.y).forEach(p => {
+          const y = Math.max(p.y, last + 24); last = y; const el = p.l.el; el.style.display = 'block';
+          const bw = el.offsetWidth, x = side === 'left' ? 10 : W - 10 - bw;
+          el.style.left = x + 'px'; el.style.top = (y - 11) + 'px';
+          const ex = side === 'left' ? x + bw : x, kx = side === 'left' ? ex + 14 : ex - 14;
+          svg += `<polyline points="${p.x.toFixed(1)},${p.y.toFixed(1)} ${kx},${y} ${ex},${y}"/><circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3"/>`;
+        });
+      };
+      place(pts.filter(p => p.x < W / 2), 'left'); place(pts.filter(p => p.x >= W / 2), 'right');
+      leaders.innerHTML = svg;
+    }
+
+    // ---- organ inspection ----
+    function exitInspect() {
+      if (!inspectKey) return;
+      inspectKey = null; isolate = false; isolateSet = null; $('#componentBlock').hidden = true; setLabels([]); refresh(); syncButtons();
+    }
+    async function inspectOrgan() {
+      const first = recs.get(selected[0]), key = first && first.meta.o;
+      if (!key || !organData[key]) { $('#stageDescription').textContent = 'Select an organ first (parts without an organ entry cannot be inspected)'; return; }
+      const primary = ORGAN_LAYER[key];
+      if (unavailable[primary]) return missingMsg(primary, organData[key].name);
+      const want = [...new Set(metas.filter(m => m.o === key).map(m => m.l))].filter(l => l !== 'skin' && l !== 'muscles' && l !== 'skeleton' && !unavailable[l]);
+      want.forEach(l => { layerOn[l] = true; });
+      syncButtons(); await Promise.all(want.map(loadLayer));
+      want.forEach(l => { if (unavailable[l]) layerOn[l] = false; });
+      const ids = [...recs.values()].filter(r => r.meta.o === key && layerOn[r.layer]).map(r => r.id);
+      if (!ids.length) { $('#stageDescription').textContent = 'No detailed parts are loaded for this organ'; return; }
+      inspectKey = key; isolate = true; isolateSet = new Set(ids); selected.length = 0; activeSystem = 'all';
+      refresh(); syncButtons(); focusIds(ids);
+      const vol = m => (m.b[1][0] - m.b[0][0]) * (m.b[1][1] - m.b[0][1]) * (m.b[1][2] - m.b[0][2]);
+      const byName = new Map(); ids.forEach(id => { const m = metaById.get(id); if (!byName.has(m.n)) byName.set(m.n, []); byName.get(m.n).push(id); });
+      const names = [...byName.entries()].sort((a, b) => vol(metaById.get(b[1][0])) - vol(metaById.get(a[1][0])));
+      setLabels(names.slice(0, 12).map(([n, list]) => ({ ids: list, text: n })));
+      const box = $('#organComponents'); box.innerHTML = '';
+      names.forEach(([n, list]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'rel-chip'; b.textContent = n; b.addEventListener('click', () => { setSelection(list, list[0]); focusIds(list); }); box.appendChild(b); });
+      const absent = {}; metas.filter(m => m.o === key && !recs.has(m.id)).forEach(m => { absent[m.l] = (absent[m.l] || 0) + 1; });
+      $('#componentNote').textContent = `${ids.length} meshes shown.` + (Object.keys(absent).length ? ' Parts of this organ in other layers not shown: ' + Object.entries(absent).map(([l, n]) => `${n} in ${LAYERS[l]}${unavailable[l] ? ' (file unavailable)' : ' (layer off or not loaded)'}`).join(', ') + '.' : '');
+      $('#componentBlock').hidden = false;
+      $('#stageDescription').textContent = `Inspecting ${organData[key].name} · ${names.length} named parts`;
+    }
+    $('#inspectBtn').addEventListener('click', inspectOrgan);
+    $('#dockToggle').addEventListener('click', () => { const o = $('#dockPanel').classList.toggle('open'); $('#dockToggle').setAttribute('aria-expanded', String(o)); });
+    // Low-quality mode for weak GPUs / software rendering: add ?quality=low to the URL (no shadow map, pixel ratio 1).
+    if (new URLSearchParams(location.search).get('quality') === 'low') { renderer.shadowMap.enabled = false; keyLight.castShadow = false; renderer.setPixelRatio(1); }
+    window.__anatomy = { renderer, scene, camera, recs, loaded, layerOn, model: () => MODEL, mixed: () => [...recs.keys()].some(id => !metaById.has(id) || metaById.get(id).src === undefined && MODEL === 'female') };
+    let lastT = performance.now(), kExp = .09, kFade = .16;
+    const _tick = tick; tick = function () { const n = performance.now(), dt = Math.min(.25, (n - lastT) / 1000); lastT = n; kExp = 1 - Math.exp(-dt * 5); kFade = 1 - Math.exp(-dt * 9); _tick(); fadeTick(); updateLabels(); };
+
+    // ---- anatomical models: male (BodyParts3D) / female (HuBMAP Visible Human Female, partial) ----
+    const MODELS = {
+      male: {
+        label: 'Male', src: 'BodyParts3D 4.0', dir: 'models/male/', layers: ['skin', 'organs', 'skeleton', 'muscles', 'arteries', 'veins', 'nerves'], missing: [],
+        sec: { x: [-.33, .33], y: [0, 1.73], z: [-.15, .15] }, quick: { lungs: 'Airways', liver: 'Liver (partial)' },
+        primary: { heart: 'organs', brain: 'nerves', spinalCord: 'nerves', lungs: 'organs', liver: 'organs', stomach: 'organs', smallIntestine: 'organs', largeIntestine: 'organs', pancreas: 'organs', kidneys: 'organs', bladder: 'organs', spleen: 'organs', trachea: 'organs', aorta: 'arteries', venaCava: 'veins' },
+        limits: {
+          lungs: 'Dataset limit: the male source data contains the airways (bronchial tree) and lung vessels, but not the lung surface itself, so the lungs appear as branching airways.',
+          liver: 'Dataset limit: the male source data contains only the caudate lobe, bile ducts and hepatic vessels. The main liver surface is not in the data.'
+        }
+      },
+      female: {
+        label: 'Female', src: 'HuBMAP Visible Human Female v1.0 (partial)', dir: 'models/female/', layers: ['skin', 'organs', 'skeleton', 'vessels'], missing: ['muscles', 'nerves'],
+        sec: { x: [-.52, .52], y: [0, 1.724], z: [-.166, .166] }, quick: { lungs: 'Lungs', liver: 'Liver' },
+        primary: { heart: 'organs', lungs: 'organs', trachea: 'organs', kidneys: 'organs', spleen: 'organs', largeIntestine: 'organs', aorta: 'vessels', venaCava: 'vessels' },
+        limits: { heart: 'Female model: chambers, septum, papillary muscles and valves are in the Organs layer; coronary vessels, aorta and pulmonary vessels are in the Vessels layer.' }
+      }
+    };
+    const makeSteps = () => ({
+      external: { layers: ['skin'], skin: 1, sys: 'all' }, transparent: { layers: ['skin', 'organs'], skin: .2, sys: 'all' },
+      muscles: { layers: ['muscles'], sys: 'all' }, skeleton: { layers: ['skeleton'], sys: 'all' }, organs: { layers: ['organs'], sys: 'all' },
+      circulatory: { layers: MODELS[MODEL].layers.includes('vessels') ? ['organs', 'vessels'] : ['organs', 'arteries', 'veins'], sys: 'circulatory' },
+      nervous: { layers: ['nerves'], sys: 'nervous' }, overview: { layers: ['skin', 'organs', 'skeleton'], skin: .12, sys: 'all' }
+    });
+    function refreshAvailability() {
+      const M = MODELS[MODEL], lab = M.label.toLowerCase();
+      document.querySelectorAll('[data-layer]').forEach(b => {
+        const l = b.dataset.layer, inModel = M.layers.includes(l), miss = M.missing.includes(l);
+        b.hidden = !(inModel || miss); b.disabled = miss || !!unavailable[l] && inModel;
+        if (miss) { b.title = `Not included in the ${lab} model (no licensed source found)`; b.removeAttribute('data-error'); }
+        else if (inModel && unavailable[l]) { b.title = `Not available: ${DIR}${l}.glb (${unavailable[l]})`; b.setAttribute('data-error', ''); }
+        else { b.title = ''; b.removeAttribute('data-error'); }
+        if (l === 'skeleton') b.textContent = MODEL === 'female' ? 'Pelvis' : 'Skeleton';
+      });
+      document.querySelectorAll('[data-step]').forEach(q => { const st = STEPS[q.dataset.step]; if (!st) return; const dead = st.layers.every(l => unavailable[l]); q.disabled = dead; q.title = dead ? `Not available in the ${lab} model` : ''; });
+      document.querySelectorAll('.system-btn').forEach(q => {
+        const id = q.dataset.system, d = SYSTEMS.find(x => x[0] === id), none = id !== 'all' && !metaCounts[id], dead = d[4].length && d[4].every(l => unavailable[l]);
+        q.disabled = !!(none || dead); q.title = none ? `No ${d[1].toLowerCase()} structures in the ${lab} model data` : (dead ? 'Layer files unavailable' : '');
+      });
+      document.querySelectorAll('.quick-organ').forEach(q => {
+        const k = q.dataset.organ, L = ORGAN_LAYER[k], off = !organCount[k] || (L && unavailable[L]);
+        q.disabled = !!off; q.title = off ? `Not included in the ${lab} model` : '';
+        if (M.quick[k]) q.lastChild.textContent = M.quick[k];
+      });
+      if (unavailable.skin) $('#skinOpacity').disabled = true;
+    }
+    async function startModel(id) {
+      const M = MODELS[id]; let data;
+      try {
+        const r = await fetch(M.dir + 'parts.json'); if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText || ''}`.trim());
+        data = await r.json();
+        if (!Array.isArray(data) || !data.length || !data[0].id || !data[0].b) throw new Error('parts.json has an unexpected format');
+      } catch (err) {
+        console.error(`[anatomy] Could not load ${M.dir}parts.json:`, err);
+        Object.keys(failures).forEach(k => delete failures[k]); failures.parts = { file: M.dir + 'parts.json', message: String(err.message || err) };
+        showAssetError(); if (recs.size) { $('#loading').classList.add('hidden'); setStatus(); } return false;
+      }
+      modelGen++; MODEL = id; DIR = M.dir;
+      exitInspect(); setLabels([]); selected.length = 0; hidden.clear(); isolate = false; isolateSet = null; explodeTarget = 0; explodeNow = 0; hoverRec = null; tween = null; lastStepKeep = lastStep;
+      Object.keys(loaded).forEach(l => { const g = bodyRoot.getObjectByName('layer-' + l); if (g) { g.traverse(o => { if (o.isMesh) o.geometry.dispose(); }); bodyRoot.remove(g); } });
+      recs.clear(); [loaded, pending, matReg, failures].forEach(o => Object.keys(o).forEach(k => delete o[k])); skinMats.length = 0;
+      metas = data; metaById = new Map(metas.map(m => [m.id, m]));
+      metaCounts = {}; organCount = {}; metas.forEach(m => { const g = groupOf(m); metaCounts[g] = (metaCounts[g] || 0) + 1; if (m.o) organCount[m.o] = (organCount[m.o] || 0) + 1; });
+      ORGAN_LAYER = M.primary; STEPS = makeSteps();
+      SEC = {}; Object.keys(M.sec).forEach(k => { SEC[k] = M.sec[k].map(v => v * SCALE); });
+      Object.keys(unavailable).forEach(k => delete unavailable[k]);
+      Object.keys(LAYERS).filter(l => !M.layers.includes(l)).forEach(l => { unavailable[l] = `not part of the ${M.label.toLowerCase()} model`; });
+      Object.keys(layerOn).forEach(l => { layerOn[l] = !!DEFAULT_ON[l] && !unavailable[l]; layerFade[l] = layerOn[l] ? 1 : 0; });
+      activeSystem = 'all'; lastStep = null; setSkinOpacity(DEFAULT_SKIN, true); $('#skinOpacity').disabled = true;
+      document.querySelectorAll('[data-step]').forEach(x => x.setAttribute('aria-pressed', 'false'));
+      $('#sectionAxis').value = 'off'; applySection();
+      $('#assetError').hidden = true; $('#toast').hidden = true;
+      refreshAvailability(); updateCounts(); syncButtons();
+      $('#loading').classList.remove('hidden'); $('#loadingText').textContent = `Loading ${M.label} anatomical model…`;
+      const gen = modelGen;
+      await loadLayer('organs');
+      if (gen !== modelGen || unavailable.organs) return false;
+      refresh(); syncButtons(); goView('front', true);
+      $('#loading').classList.add('hidden');
+      selectOrgan('heart', false);
+      userMoved = false; loadLayer('skin').then(ok => { if (ok && gen === modelGen) { refresh(); if (!userMoved && !tween) goView('front', true); } });
+      return true;
+    }
+    let lastStepKeep = null, switching = false;
+    async function switchModel(id) {
+      if (switching || id === MODEL) return; switching = true;
+      const prev = MODEL, keep = lastStep;
+      document.querySelectorAll('[data-model]').forEach(b => { b.disabled = true; });
+      $('#loading').classList.remove('hidden'); $('#loadingText').textContent = `Switching to ${MODELS[id].label} model…`;
+      const ok = await startModel(id);
+      document.querySelectorAll('[data-model]').forEach(b => { b.disabled = false; });
+      if (!ok && MODEL === prev) { syncButtons(); }
+      else if (ok && keep) { const sb = document.querySelector(`[data-step="${keep}"]`); if (sb && !sb.disabled) sb.click(); }
+      switching = false;
+    }
+    document.querySelectorAll('[data-model]').forEach(b => b.addEventListener('click', () => switchModel(b.dataset.model)));
+
+    // ---- boot ----
+    let userMoved = false; controls.addEventListener('start', () => { userMoved = true; });
+    startModel('male');
+  </script>
+</body>
+</html>
